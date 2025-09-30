@@ -1,4 +1,4 @@
-# Laravel → Node.js Migration Base
+# Laravel → Node.js Base de migración
 
 ## Descripción  
 Este proyecto tiene como finalidad **automatizar la migración** de una API desarrollada en **Laravel** hacia **Node.js/Express** utilizando flujos de trabajo en **n8n**.  
@@ -66,4 +66,19 @@ Ajustes automáticos que aseguran consistencia:
 - **Get SHA** → determina si el archivo ya existe.  
 - **PUT Create/Update** → crea o actualiza los archivos en la rama destino.  
 
-Los commits llevan el formato:  
+Los commits llevan el formato: migrate(<tipo>): <ruta> [skip ci].
+
+
+---
+
+## 🎯 Objetivo final  
+Al ejecutar el flujo completo en **n8n**, el repositorio destino contará con:  
+- Una **API totalmente migrada** desde Laravel a Node.js/Express.  
+- **Estructura modular** validada con pruebas automáticas.  
+- Compatibilidad con convenciones estándar en **controladores, rutas, middlewares y modelos**.  
+
+En otras palabras: lo que comienza aquí como una **base mínima en Node.js**, terminará siendo una **API completa migrada y lista para extender** en Node/Express gracias al proceso automatizado en n8n.  
+
+---
+
+✍️ **Autor**: Proyecto de migración automatizada con **n8n, Laravel y Node.js**.  
