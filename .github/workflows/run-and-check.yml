@@ -8,7 +8,8 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/run-and-check.yml'
-  workflow_dispatch: {}
+      - 'migration_manifest.json'   
+  workflow_dispatch: {}             
 
 jobs:
   run-and-check:
@@ -119,7 +120,6 @@ jobs:
           test "$code" = "200"
 
           echo "== POST /api/projects/:project/tasks =="
-          # Tu Task.store espera { name, description, status? } (no "title")
           code=$(curl -sS -o task_new.json -w "%{http_code}" "${AUTH[@]}" -H 'Content-Type: application/json' \
             -d '{"name":"CI Task","description":"demo"}' \
             "$BASE/projects/$PROJECT_ID/tasks")
