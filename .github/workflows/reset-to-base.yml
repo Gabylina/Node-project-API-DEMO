@@ -5,7 +5,7 @@ on:
 
 jobs:
   reset:
-    name: Clean migrated files and restore base
+    name: Clean migrated files and preserve base
     runs-on: ubuntu-latest
 
     steps:
@@ -16,24 +16,37 @@ jobs:
 
       - name: Show warning and confirmation
         run: |
-          echo "⚠️  Este flujo eliminará todos los archivos migrados y dejará solo la base."
-          echo "⚠️  Asegúrate de que no haya cambios que necesites conservar."
+          echo "⚠️  Este flujo eliminará todos los archivos migrados y dejará solo los archivos base."
+          echo "⚠️  No se modificará el contenido de los archivos base:"
+          echo "   - src/app.js"
+          echo "   - src/server.js"
+          echo "   - .github/workflows/run-and-check.yml"
+          echo "   - .github/workflows/reset-to-base.yml"
+          echo "   - package.json"
+          echo "   - package-lock.json"
+          echo ""
           echo "Presiona 'Run workflow' con precaución desde GitHub Actions."
           sleep 5
 
       - name: Remove migrated folders and files
         run: |
-          echo "🧹 Limpiando archivos migrados..."
+          echo "🧹 Eliminando todos los archivos migrados (preservando solo la base)..."
 
-          # Elimina todo el contenido de src (controladores, modelos, rutas, etc.)
-          rm -rf src/*
+          # Elimina TODO excepto los archivos base definidos
+          find . -mindepth 1 -maxdepth 1 ! -path './.github' ! -name 'src' ! -name 'package.json' ! -name 'package-lock.json' -exec rm -rf {} +
 
-          # Recrea la estructura base mínima
-          mkdir -p src
-          echo "// Base Express app (mantener limpio para migraciones)" > src/app.js
-          echo "// Base server setup (mantener limpio para migraciones)" > src/server.js
+          # Dentro de src, eliminar todo excepto app.js y server.js
+          if [ -d "src" ]; then
+            find src -mindepth 1 -type f ! -name 'app.js' ! -name 'server.js' -delete
+            find src -mindepth 1 -type d -exec rm -rf {} +
+          fi
 
-          echo "✅ Repositorio restaurado a estado base provisional."
+          # Dentro de .github/workflows, mantener los dos YAMLs base
+          if [ -d ".github/workflows" ]; then
+            find .github/workflows -type f ! -name 'run-and-check.yml' ! -name 'reset-to-base.yml' -delete
+          fi
+
+          echo "✅ Migraciones eliminadas, base preservada intacta."
 
       - name: Verify essential files exist
         run: |
@@ -60,13 +73,13 @@ jobs:
           git config user.name "Reset Bot"
           git config user.email "bot@example.com"
           git add -A
-          git commit -m "Reset to base [skip ci]" || echo "No changes to commit"
+          git commit -m "Reset to base (keep core files only) [skip ci]" || echo "No changes to commit"
           git push
 
       - name: Confirm cleanup summary
         run: |
           echo "🚀 Limpieza completada correctamente."
-          echo "El repositorio ahora contiene solo los archivos base:"
+          echo "El repositorio mantiene solo los archivos base:"
           echo " - src/app.js"
           echo " - src/server.js"
           echo " - .github/workflows/run-and-check.yml"
@@ -74,4 +87,4 @@ jobs:
           echo " - package.json"
           echo " - package-lock.json"
           echo ""
-          echo "Puedes volver a ejecutar el flujo de migración en n8n desde cero."
+          echo "Puedes volver a ejecutar la migración en n8n desde cero con un entorno totalmente limpio."
