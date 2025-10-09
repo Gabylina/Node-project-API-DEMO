@@ -1,7 +1,7 @@
 name: Reset to Base
 
 on:
-  workflow_dispatch:  # Solo se ejecuta manualmente desde la pestaña "Actions"
+  workflow_dispatch:  # Ejecuta manualmente desde Actions
 
 jobs:
   reset:
@@ -13,44 +13,85 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
 
-      - name: Show warning and confirmation
+      - name: Warning
         run: |
-          echo "⚠️  Este flujo eliminará todos los archivos migrados y dejará solo los archivos base."
-          echo "⚠️  No se modificará el contenido de los archivos base:"
+          echo "⚠️ Este flujo borrará TODO lo migrado y dejará SOLO la base:"
           echo "   - src/app.js"
           echo "   - src/server.js"
           echo "   - .github/workflows/run-and-check.yml"
           echo "   - .github/workflows/reset-to-base.yml"
           echo "   - package.json"
           echo "   - package-lock.json"
-          echo ""
-          echo "Presiona 'Run workflow' con precaución desde GitHub Actions."
-          sleep 5
+          sleep 3
+
+      - name: Plan deletions (preview)
+        id: plan
+        run: |
+          set -e
+
+          # Top-level a borrar (todo excepto .git, .github, src, package.json, package-lock.json)
+          find . -mindepth 1 -maxdepth 1 \
+            ! -path './.git' \
+            ! -path './.github' \
+            ! -name 'src' \
+            ! -name 'package.json' \
+            ! -name 'package-lock.json' \
+            -print | sort > /tmp/delete_top.txt || true
+
+          # Dentro de src: borrar todo excepto app.js y server.js
+          if [ -d src ]; then
+            find src -mindepth 1 -type f \
+              ! -name 'app.js' \
+              ! -name 'server.js' \
+              -print | sort > /tmp/delete_src_files.txt || true
+
+            find src -mindepth 1 -type d -print | sort > /tmp/delete_src_dirs.txt || true
+          else
+            : > /tmp/delete_src_files.txt
+            : > /tmp/delete_src_dirs.txt
+          fi
+
+          echo "== Top-level que se borrará =="
+          cat /tmp/delete_top.txt || true
+          echo
+          echo "== Archivos en src/ que se borrarán =="
+          cat /tmp/delete_src_files.txt || true
+          echo
+          echo "== Carpetas en src/ que se borrarán =="
+          cat /tmp/delete_src_dirs.txt || true
+
+          # Conteo total para log
+          DELETED_COUNT=$( (cat /tmp/delete_top.txt /tmp/delete_src_files.txt /tmp/delete_src_dirs.txt 2>/dev/null || true) | wc -l | tr -d ' ')
+          echo "deleted_count=${DELETED_COUNT}" >> "$GITHUB_OUTPUT"
 
       - name: Remove migrated folders and files
         run: |
-          echo "🧹 Eliminando todos los archivos migrados (preservando solo la base)..."
+          set -e
 
-          # Elimina TODO excepto los archivos base definidos
-          find . -mindepth 1 -maxdepth 1 ! -path './.github' ! -name 'src' ! -name 'package.json' ! -name 'package-lock.json' -exec rm -rf {} +
-
-          # Dentro de src, eliminar todo excepto app.js y server.js
-          if [ -d "src" ]; then
-            find src -mindepth 1 -type f ! -name 'app.js' ! -name 'server.js' -delete
-            find src -mindepth 1 -type d -exec rm -rf {} +
+          echo "🧹 Eliminando archivos y carpetas migradas…"
+          # Borrar top-level planificado
+          if [ -s /tmp/delete_top.txt ]; then
+            xargs -r rm -rf < /tmp/delete_top.txt
           fi
 
-          # Dentro de .github/workflows, mantener los dos YAMLs base
-          if [ -d ".github/workflows" ]; then
-            find .github/workflows -type f ! -name 'run-and-check.yml' ! -name 'reset-to-base.yml' -delete
+          # Borrar archivos de src planificados
+          if [ -s /tmp/delete_src_files.txt ]; then
+            xargs -r rm -f < /tmp/delete_src_files.txt
           fi
 
-          echo "✅ Migraciones eliminadas, base preservada intacta."
+          # Borrar carpetas de src planificadas
+          if [ -s /tmp/delete_src_dirs.txt ]; then
+            # Borrar en orden inverso para evitar conflictos por anidamiento
+            tac /tmp/delete_src_dirs.txt | xargs -r rm -rf
+          fi
+
+          echo "✅ Migraciones eliminadas. Base preservada intacta."
 
       - name: Verify essential files exist
         run: |
-          echo "🔍 Verificando archivos esenciales..."
+          echo "🔍 Verificando archivos esenciales…"
           REQUIRED_FILES=(
             "src/app.js"
             "src/server.js"
@@ -59,7 +100,6 @@ jobs:
             "package.json"
             "package-lock.json"
           )
-
           for f in "${REQUIRED_FILES[@]}"; do
             if [ ! -f "$f" ]; then
               echo "::error::Falta el archivo esencial: $f"
@@ -68,23 +108,23 @@ jobs:
           done
           echo "✅ Todos los archivos esenciales están presentes."
 
-      - name: Git commit and push cleanup
+      - name: Commit and push cleanup
         run: |
           git config user.name "Reset Bot"
           git config user.email "bot@example.com"
           git add -A
-          git commit -m "Reset to base (keep core files only) [skip ci]" || echo "No changes to commit"
+          git commit -m "Reset to base (keep only core files) [skip ci]" || echo "No changes to commit"
           git push
 
-      - name: Confirm cleanup summary
+      - name: Summary
         run: |
-          echo "🚀 Limpieza completada correctamente."
-          echo "El repositorio mantiene solo los archivos base:"
+          echo "🚀 Limpieza completada."
+          echo "Se eliminaron ${{ steps.plan.outputs.deleted_count }} entradas (archivos/carpetas)."
+          echo "Se preservaron:"
           echo " - src/app.js"
           echo " - src/server.js"
           echo " - .github/workflows/run-and-check.yml"
           echo " - .github/workflows/reset-to-base.yml"
           echo " - package.json"
           echo " - package-lock.json"
-          echo ""
-          echo "Puedes volver a ejecutar la migración en n8n desde cero con un entorno totalmente limpio."
+          echo "(La carpeta .git también se mantuvo.)"
