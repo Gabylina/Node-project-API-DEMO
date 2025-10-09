@@ -1,0 +1,77 @@
+name: Reset to Base
+
+on:
+  workflow_dispatch:  # Solo se ejecuta manualmente desde la pestaña "Actions"
+
+jobs:
+  reset:
+    name: Clean migrated files and restore base
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Show warning and confirmation
+        run: |
+          echo "⚠️  Este flujo eliminará todos los archivos migrados y dejará solo la base."
+          echo "⚠️  Asegúrate de que no haya cambios que necesites conservar."
+          echo "Presiona 'Run workflow' con precaución desde GitHub Actions."
+          sleep 5
+
+      - name: Remove migrated folders and files
+        run: |
+          echo "🧹 Limpiando archivos migrados..."
+
+          # Elimina todo el contenido de src (controladores, modelos, rutas, etc.)
+          rm -rf src/*
+
+          # Recrea la estructura base mínima
+          mkdir -p src
+          echo "// Base Express app (mantener limpio para migraciones)" > src/app.js
+          echo "// Base server setup (mantener limpio para migraciones)" > src/server.js
+
+          echo "✅ Repositorio restaurado a estado base provisional."
+
+      - name: Verify essential files exist
+        run: |
+          echo "🔍 Verificando archivos esenciales..."
+          REQUIRED_FILES=(
+            "src/app.js"
+            "src/server.js"
+            ".github/workflows/run-and-check.yml"
+            ".github/workflows/reset-to-base.yml"
+            "package.json"
+            "package-lock.json"
+          )
+
+          for f in "${REQUIRED_FILES[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Falta el archivo esencial: $f"
+              exit 1
+            fi
+          done
+          echo "✅ Todos los archivos esenciales están presentes."
+
+      - name: Git commit and push cleanup
+        run: |
+          git config user.name "Reset Bot"
+          git config user.email "bot@example.com"
+          git add -A
+          git commit -m "Reset to base [skip ci]" || echo "No changes to commit"
+          git push
+
+      - name: Confirm cleanup summary
+        run: |
+          echo "🚀 Limpieza completada correctamente."
+          echo "El repositorio ahora contiene solo los archivos base:"
+          echo " - src/app.js"
+          echo " - src/server.js"
+          echo " - .github/workflows/run-and-check.yml"
+          echo " - .github/workflows/reset-to-base.yml"
+          echo " - package.json"
+          echo " - package-lock.json"
+          echo ""
+          echo "Puedes volver a ejecutar el flujo de migración en n8n desde cero."
