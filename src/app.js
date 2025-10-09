@@ -8,4 +8,4 @@ app.use(express.json());
 // monta todas las rutas bajo /api (incluye GET /api/ping)
 app.use('/api', routes);
 
-export default app;// Base Express app (mantener limpio para migraciones)
+export default app;
