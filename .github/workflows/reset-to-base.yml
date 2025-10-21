@@ -20,6 +20,7 @@ jobs:
           echo "⚠️ Este flujo borrará TODO lo migrado y dejará SOLO la base:"
           echo "   - src/app.js"
           echo "   - src/server.js"
+          echo "   - README.md"
           echo "   - .github/workflows/run-and-check.yml"
           echo "   - .github/workflows/reset-to-base.yml"
           echo "   - package.json"
@@ -31,11 +32,12 @@ jobs:
         run: |
           set -e
 
-          # Top-level a borrar (todo excepto .git, .github, src, package.json, package-lock.json)
+          # Top-level a borrar (todo excepto .git, .github, src, README.md, package.json, package-lock.json)
           find . -mindepth 1 -maxdepth 1 \
             ! -path './.git' \
             ! -path './.github' \
             ! -name 'src' \
+            ! -name 'README.md' \
             ! -name 'package.json' \
             ! -name 'package-lock.json' \
             -print | sort > /tmp/delete_top.txt || true
@@ -62,31 +64,16 @@ jobs:
           echo "== Carpetas en src/ que se borrarán =="
           cat /tmp/delete_src_dirs.txt || true
 
-          # Conteo total para log
           DELETED_COUNT=$( (cat /tmp/delete_top.txt /tmp/delete_src_files.txt /tmp/delete_src_dirs.txt 2>/dev/null || true) | wc -l | tr -d ' ')
           echo "deleted_count=${DELETED_COUNT}" >> "$GITHUB_OUTPUT"
 
       - name: Remove migrated folders and files
         run: |
           set -e
-
           echo "🧹 Eliminando archivos y carpetas migradas…"
-          # Borrar top-level planificado
-          if [ -s /tmp/delete_top.txt ]; then
-            xargs -r rm -rf < /tmp/delete_top.txt
-          fi
-
-          # Borrar archivos de src planificados
-          if [ -s /tmp/delete_src_files.txt ]; then
-            xargs -r rm -f < /tmp/delete_src_files.txt
-          fi
-
-          # Borrar carpetas de src planificadas
-          if [ -s /tmp/delete_src_dirs.txt ]; then
-            # Borrar en orden inverso para evitar conflictos por anidamiento
-            tac /tmp/delete_src_dirs.txt | xargs -r rm -rf
-          fi
-
+          if [ -s /tmp/delete_top.txt ]; then xargs -r rm -rf < /tmp/delete_top.txt; fi
+          if [ -s /tmp/delete_src_files.txt ]; then xargs -r rm -f < /tmp/delete_src_files.txt; fi
+          if [ -s /tmp/delete_src_dirs.txt ]; then tac /tmp/delete_src_dirs.txt | xargs -r rm -rf; fi
           echo "✅ Migraciones eliminadas. Base preservada intacta."
 
       - name: Verify essential files exist
@@ -95,6 +82,7 @@ jobs:
           REQUIRED_FILES=(
             "src/app.js"
             "src/server.js"
+            "README.md"
             ".github/workflows/run-and-check.yml"
             ".github/workflows/reset-to-base.yml"
             "package.json"
@@ -119,12 +107,12 @@ jobs:
       - name: Summary
         run: |
           echo "🚀 Limpieza completada."
-          echo "Se eliminaron ${{ steps.plan.outputs.deleted_count }} entradas (archivos/carpetas)."
+          echo "Se eliminaron ${{ steps.plan.outputs.deleted_count }} entradas."
           echo "Se preservaron:"
           echo " - src/app.js"
           echo " - src/server.js"
+          echo " - README.md"
           echo " - .github/workflows/run-and-check.yml"
           echo " - .github/workflows/reset-to-base.yml"
           echo " - package.json"
           echo " - package-lock.json"
-          echo "(La carpeta .git también se mantuvo.)"
